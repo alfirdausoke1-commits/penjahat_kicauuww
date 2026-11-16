@@ -1,1 +1,542 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NINJA DASH: Temple Escape</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0b0f19;
+            font-family: 'Rajdhani', sans-serif;
+            color: #f8fafc;
+        }
+        .font-pixel {
+            font-family: 'Press Start 2P', monospace;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        .arcade-btn {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            border: 3px solid #93c5fd;
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.3);
+            transition: transform 0.1s ease, filter 0.1s ease;
+        }
+        .arcade-btn:active {
+            transform: scale(0.92);
+            filter: brightness(1.2);
+        }
+        .glow-text {
+            text-shadow: 0 0 15px rgba(59, 130, 246, 0.8), 0 0 30px rgba(147, 197, 253, 0.5);
+        }
+    </style>
+</head>
+<body class="relative w-screen h-screen overflow-hidden">
 
+    <!-- Game Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- HUD (Score & Coins) -->
+    <div id="hudLayer" class="hidden absolute inset-0 pointer-events-none flex flex-col justify-between p-4 sm:p-6 z-10">
+        <div class="w-full max-w-4xl mx-auto flex justify-between items-center bg-slate-900/80 border-2 border-blue-500/50 backdrop-blur-md rounded-xl px-4 py-3 shadow-2xl">
+            <div class="flex flex-col">
+                <span class="text-[10px] text-blue-400 font-pixel uppercase tracking-widest">SKOR</span>
+                <span id="scoreText" class="font-pixel text-xl sm:text-3xl text-yellow-400">0</span>
+            </div>
+            <div class="flex items-center gap-6">
+                <div class="flex flex-col items-center">
+                    <span class="text-[10px] text-purple-400 font-pixel uppercase tracking-widest">GEM</span>
+                    <span id="gemText" class="font-pixel text-lg sm:text-2xl text-purple-300">💎 0</span>
+                </div>
+                <button id="btnAudioHud" class="pointer-events-auto px-3 py-1.5 bg-slate-800 border border-slate-600 rounded-lg text-xs text-slate-200 hover:text-blue-400 font-bold">
+                    🔊 SUARA
+                </button>
+            </div>
+        </div>
+        <div class="text-center pb-2 text-[11px] text-slate-400 font-bold tracking-wider">
+            TEKAN SPASI / TAP LAYAR UNTUK MELOMPAT (DOUBLE JUMP TERSEDIA!)
+        </div>
+    </div>
+
+    <!-- Menu Utama -->
+    <div id="menuOverlay" class="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
+        <div class="w-full max-w-md bg-slate-900 border-4 border-blue-500 rounded-2xl p-6 sm:p-8 text-center shadow-[0_0_50px_rgba(59,130,246,0.5)] flex flex-col items-center">
+            <span class="px-3 py-1 rounded-full bg-blue-950 border border-blue-600 text-blue-300 text-xs font-pixel uppercase mb-3">
+                ARCADE RUNNER
+            </span>
+            <h1 class="font-pixel text-2xl sm:text-4xl text-yellow-400 glow-text mb-2 leading-snug">
+                NINJA DASH
+            </h1>
+            <p class="text-slate-300 text-xs sm:text-sm mb-6 leading-relaxed">
+                Lari menembus kuil kuno malam hari, hindari rintangan shuriken & batu runcing, serta kumpulkan permata energi sebanyak mungkin!
+            </p>
+            <button id="btnStart" class="w-full py-4 rounded-xl arcade-btn font-pixel text-sm sm:text-base text-white tracking-wider mb-3">
+                🚀 MULAI BERMAIN
+            </button>
+            <button id="btnMenuAudio" class="w-full py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 font-bold text-xs">
+                🔊 AUDIO: AKTIF
+            </button>
+        </div>
+    </div>
+
+    <!-- Layar Game Over -->
+    <div id="endOverlay" class="hidden absolute inset-0 z-30 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
+        <div class="w-full max-w-md bg-slate-900 border-4 border-red-500 rounded-2xl p-6 sm:p-8 text-center shadow-[0_0_50px_rgba(239,68,68,0.5)] flex flex-col items-center">
+            <span class="text-xs font-pixel text-red-400 uppercase tracking-widest mb-1">
+                PERMAINAN SELESAI
+            </span>
+            <h2 class="font-pixel text-2xl sm:text-3xl text-red-500 mb-4">
+                GAME OVER
+            </h2>
+            <div class="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 mb-6 grid grid-cols-2 gap-3 text-center">
+                <div>
+                    <div class="text-[10px] text-slate-400 font-pixel">SKOR AKHIR</div>
+                    <div id="finalScore" class="font-pixel text-xl text-yellow-400">0</div>
+                </div>
+                <div>
+                    <div class="text-[10px] text-slate-400 font-pixel">GEM TERKUMPUL</div>
+                    <div id="finalGems" class="font-pixel text-xl text-purple-300">💎 0</div>
+                </div>
+            </div>
+            <button id="btnRestart" class="w-full py-4 rounded-xl arcade-btn font-pixel text-sm sm:text-base text-white tracking-wider">
+                🔄 MAIN LAGI
+            </button>
+        </div>
+    </div>
+
+<script>
+/**
+ * NINJA DASH: Temple Escape - Simple & Addictive Arcade Game
+ */
+class SoundManager {
+    constructor() {
+        this.ctx = null;
+        this.muted = false;
+    }
+    init() {
+        if (!this.ctx) {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            this.ctx = new AudioCtx();
+        }
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+    }
+    toggleMute() {
+        this.muted = !this.muted;
+        return this.muted;
+    }
+    playJump() {
+        if (this.muted || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(300, now);
+        osc.frequency.exponentialRampToValueAtTime(700, now + 0.15);
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.16);
+    }
+    playGem() {
+        if (this.muted || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.exponentialRampToValueAtTime(1320, now + 0.2);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.21);
+    }
+    playHit() {
+        if (this.muted || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.exponentialRampToValueAtTime(40, now + 0.3);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.31);
+    }
+}
+
+const sound = new SoundManager();
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+let width = window.innerWidth;
+let height = window.innerHeight;
+let groundY = height * 0.78;
+
+function resize() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+    groundY = height * 0.78;
+}
+window.addEventListener('resize', resize);
+resize();
+
+const gameState = {
+    mode: 'menu', // menu, playing, gameover
+    score: 0,
+    gems: 0,
+    gameSpeed: 7.5,
+    distance: 0,
+    player: {
+        x: 100,
+        y: groundY,
+        vy: 0,
+        size: 36,
+        isJumping: false,
+        jumpCount: 0,
+        maxJumps: 2
+    },
+    obstacles: [],
+    collectibles: [],
+    particles: [],
+    stars: []
+};
+
+// Background stars
+for (let i = 0; i < 60; i++) {
+    gameState.stars.push({
+        x: Math.random() * width,
+        y: Math.random() * (groundY - 50),
+        size: 1 + Math.random() * 2.5,
+        speed: 0.2 + Math.random() * 0.6
+    });
+}
+
+function resetGame() {
+    gameState.score = 0;
+    gameState.gems = 0;
+    gameState.gameSpeed = 7.5;
+    gameState.distance = 0;
+    gameState.obstacles = [];
+    gameState.collectibles = [];
+    gameState.particles = [];
+    gameState.player.y = groundY;
+    gameState.player.vy = 0;
+    gameState.player.jumpCount = 0;
+}
+
+function triggerJump() {
+    if (gameState.mode !== 'playing') return;
+    const p = gameState.player;
+    if (p.jumpCount < p.maxJumps) {
+        p.vy = p.jumpCount === 0 ? -14.5 : -13;
+        p.jumpCount++;
+        sound.playJump();
+        // Spawn jump particles
+        for (let i = 0; i < 10; i++) {
+            gameState.particles.push({
+                x: p.x + 18,
+                y: groundY,
+                vx: (Math.random() - 0.5) * 4,
+                vy: -Math.random() * 3,
+                size: 3 + Math.random() * 3,
+                color: '#60a5fa',
+                alpha: 1,
+                decay: 0.04
+            });
+        }
+    }
+}
+
+// Controls
+window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' || e.code === 'ArrowUp') {
+        e.preventDefault();
+        sound.init();
+        triggerJump();
+    }
+});
+
+window.addEventListener('pointerdown', () => {
+    if (gameState.mode === 'playing') {
+        sound.init();
+        triggerJump();
+    }
+});
+
+// UI Event Handlers
+document.getElementById('btnStart').onclick = () => {
+    sound.init();
+    resetGame();
+    gameState.mode = 'playing';
+    document.getElementById('menuOverlay').classList.add('hidden');
+    document.getElementById('hudLayer').classList.remove('hidden');
+};
+
+document.getElementById('btnRestart').onclick = () => {
+    sound.init();
+    resetGame();
+    gameState.mode = 'playing';
+    document.getElementById('endOverlay').classList.add('hidden');
+};
+
+const audioToggleHandler = () => {
+    const muted = sound.toggleMute();
+    const label = muted ? '🔇 MATI' : '🔊 AKTIF';
+    document.getElementById('btnMenuAudio').textContent = `AUDIO: ${label}`;
+    document.getElementById('btnAudioHud').textContent = label;
+};
+document.getElementById('btnMenuAudio').onclick = audioToggleHandler;
+document.getElementById('btnAudioHud').onclick = audioToggleHandler;
+
+// Spawning logic
+let obstacleTimer = 0;
+function spawnEntities(dt) {
+    obstacleTimer += dt;
+    if (obstacleTimer > 1.3 - Math.min(0.5, gameState.gameSpeed * 0.02)) {
+        obstacleTimer = 0;
+        gameState.gameSpeed += 0.08; // Progresif semakin cepat & seru!
+
+        const type = Math.random();
+        if (type < 0.6) {
+            // Spike / Shuriken tanah
+            gameState.obstacles.push({
+                x: width + 50,
+                y: groundY,
+                w: 32,
+                h: 36,
+                type: 'spike'
+            });
+        } else {
+            // Kotak / Benteng terbang rendah
+            gameState.obstacles.push({
+                x: width + 50,
+                y: groundY - 70 - Math.random() * 30,
+                w: 40,
+                h: 40,
+                type: 'block'
+            });
+        }
+
+        // Spawn gem
+        if (Math.random() < 0.7) {
+            gameState.collectibles.push({
+                x: width + 120,
+                y: groundY - 80 - Math.random() * 40,
+                r: 12,
+                collected: false
+            });
+        }
+    }
+}
+
+// Game Loop
+let lastTime = performance.now();
+function gameLoop(now) {
+    let dt = (now - lastTime) / 1000;
+    lastTime = now;
+    if (dt > 0.05) dt = 0.05;
+
+    if (gameState.mode === 'playing') {
+        gameState.distance += gameState.gameSpeed;
+        gameState.score = Math.floor(gameState.distance / 10);
+        document.getElementById('scoreText').textContent = gameState.score;
+        document.getElementById('gemText').textContent = `💎 ${gameState.gems}`;
+
+        // Player physics
+        const p = gameState.player;
+        p.vy += 0.65; // gravitasi
+        p.y += p.vy;
+        if (p.y >= groundY) {
+            p.y = groundY;
+            p.vy = 0;
+            p.jumpCount = 0;
+        }
+
+        spawnEntities(dt);
+
+        // Update obstacles
+        for (let i = gameState.obstacles.length - 1; i >= 0; i--) {
+            const obs = gameState.obstacles[i];
+            obs.x -= gameState.gameSpeed;
+
+            // Collision check (Bounding Box)
+            const hitBox = { x: p.x - 14, y: p.y - p.size, w: 28, h: p.size };
+            if (
+                hitBox.x < obs.x + obs.w &&
+                hitBox.x + hitBox.w > obs.x &&
+                hitBox.y < obs.y &&
+                hitBox.y + hitBox.h > obs.y - obs.h
+            ) {
+                sound.playHit();
+                gameState.mode = 'gameover';
+                document.getElementById('hudLayer').classList.add('hidden');
+                document.getElementById('endOverlay').classList.remove('hidden');
+                document.getElementById('finalScore').textContent = gameState.score;
+                document.getElementById('finalGems').textContent = `💎 ${gameState.gems}`;
+            }
+
+            if (obs.x < -60) gameState.obstacles.splice(i, 1);
+        }
+
+        // Update collectibles
+        for (let i = gameState.collectibles.length - 1; i >= 0; i--) {
+            const gem = gameState.collectibles[i];
+            gem.x -= gameState.gameSpeed;
+
+            const dx = gameState.player.x - gem.x;
+            const dy = (gameState.player.y - 20) - gem.y;
+            if (Math.hypot(dx, dy) < gem.r + 22 && !gem.collected) {
+                gem.collected = true;
+                gameState.gems++;
+                sound.playGem();
+                // Spawn sparkle particles
+                for (let j = 0; j < 8; j++) {
+                    gameState.particles.push({
+                        x: gem.x,
+                        y: gem.y,
+                        vx: (Math.random() - 0.5) * 6,
+                        vy: (Math.random() - 0.5) * 6,
+                        size: 2.5 + Math.random() * 2.5,
+                        color: '#c084fc',
+                        alpha: 1,
+                        decay: 0.05
+                    });
+                }
+                gameState.collectibles.splice(i, 1);
+                continue;
+            }
+
+            if (gem.x < -50) gameState.collectibles.splice(i, 1);
+        }
+    }
+
+    // Update particles
+    for (let i = gameState.particles.length - 1; i >= 0; i--) {
+        const pt = gameState.particles[i];
+        pt.x += pt.vx;
+        pt.y += pt.vy;
+        pt.alpha -= pt.decay;
+        if (pt.alpha <= 0) gameState.particles.splice(i, 1);
+    }
+
+    // ==========================================
+    // RENDERING
+    // ==========================================
+    ctx.clearRect(0, 0, width, height);
+
+    // Background gradient
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
+    bgGrad.addColorStop(0, '#090d16');
+    bgGrad.addColorStop(1, '#1e1b4b');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, width, height);
+
+    // Render stars
+    gameState.stars.forEach(s => {
+        if (gameState.mode === 'playing') s.x -= s.speed;
+        if (s.x < 0) s.x = width;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+        ctx.fill();
+    });
+
+    // Render Ground Temple Floor
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, groundY, width, height - groundY);
+    ctx.strokeStyle = '#3b82f6';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(0, groundY);
+    ctx.lineTo(width, groundY);
+    ctx.stroke();
+
+    // Render Obstacles
+    gameState.obstacles.forEach(obs => {
+        ctx.fillStyle = '#ef4444';
+        ctx.strokeStyle = '#f87171';
+        ctx.lineWidth = 2;
+        if (obs.type === 'spike') {
+            ctx.beginPath();
+            ctx.moveTo(obs.x, obs.y);
+            ctx.lineTo(obs.x + obs.w / 2, obs.y - obs.h);
+            ctx.lineTo(obs.x + obs.w, obs.y);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+        } else {
+            ctx.fillRect(obs.x, obs.y - obs.h, obs.w, obs.h);
+            ctx.strokeRect(obs.x, obs.y - obs.h, obs.w, obs.h);
+        }
+    });
+
+    // Render Collectibles (Gems)
+    gameState.collectibles.forEach(gem => {
+        if (gem.collected) return;
+        ctx.fillStyle = '#a855f7';
+        ctx.strokeStyle = '#e879f9';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(gem.x, gem.y, gem.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+    });
+
+    // Render Particles
+    gameState.particles.forEach(pt => {
+        ctx.save();
+        ctx.globalAlpha = pt.alpha;
+        ctx.fillStyle = pt.color;
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    });
+
+    // Render Ninja Player
+    const p = gameState.player;
+    ctx.save();
+    ctx.fillStyle = '#3b82f6';
+    ctx.strokeStyle = '#93c5fd';
+    ctx.lineWidth = 3;
+    // Kepala / Badan Ninja
+    ctx.fillRect(p.x - 14, p.y - p.size, 28, p.size);
+    ctx.strokeRect(p.x - 14, p.y - p.size, 28, p.size);
+    // Ikat kepala merah ninja
+    ctx.fillStyle = '#ef4444';
+    ctx.fillRect(p.x - 14, p.y - p.size + 6, 28, 8);
+    // Pita terbang ke belakang
+    ctx.fillRect(p.x - 24, p.y - p.size + 8, 12, 4);
+    ctx.restore();
+
+    requestAnimationFrame(gameLoop);
+}
+
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
